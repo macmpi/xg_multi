@@ -1,0 +1,270 @@
+#!/bin/sh
+
+# SPDX-FileCopyrightText: Copyright 2025, macmpi
+# SPDX-License-Identifier: MIT
+
+## Extended Multifunction Composite USB Gadget
+# works across most host OS computers: Linux/mcOS/Windows
+# without additional host-side drivers or configuration required.
+# Enables USB Serial, Ethernet (ECM or RNDIS) ports and Mass Storage functions
+# Does necessary sanity-checks on ports beforehand and returns clean if not relevant.
+# Actual ports configs like serial options, console bring-up, networking adresses are
+# application-specific and out of this scope: must be done after this script returns.
+
+VERSION="0.5"
+
+SCRIPT="${0##*/}"
+error() {
+	echo "$SCRIPT: $1" >&2
+}
+
+alias _logger='logger -st "$SCRIPT"'
+
+TIMEOUT_IFACE=1
+TIMEOUT_ECM=1
+CONFIGFS="/sys/kernel/config/usb_gadget/$SCRIPT"
+
+usage() {
+[ "$2" ] && error "$2"
+local outfh=2
+[ "$1" -eq 0 ] && outfh=1
+
+cat >&$outfh <<-__EOF__
+
+usage: xg_multi [-D <MAC address>>] [-H <MAC address>] [-V <file path>]
+       xg_multi -r
+
+Setup (or remove) Extended Multifuntion USB-gadget: serial, ethernet (ECM/RNDIS),
+and mass-storage (if valid path is specified).
+Ports are just created and are left unconfigured (i.e console, networking,...)
+
+Options: -D|--Device <MAC address>  Specify MAC address for device
+         -H|--Host <MAC address>    Specify MAC address for device
+         -V|--Volume <file path>    Path to device/LUN file to use as mass-storage
+         -r|--remove                Remove gadgets
+         -h|--help                  help information and usage
+
+__EOF__
+exit "$1"
+}
+
+
+OPTS=$(getopt -l Device:,help,Host:,remove,Volume: -n "$SCRIPT" -o D:hH:rV: -- "$@") || usage 1
+eval set -- "$OPTS"
+while true; do
+	case "$1" in
+		-D|--Device) shift
+					if echo "$1" | grep -q "[[:xdigit:]:]\{17\}"; then
+						dev_mac="$1"
+					else
+						usage 1 "MAC address pattern must be HEX xx:xx:xx:xx:xx:xx"
+					fi
+			;;
+		-h|--help) echo "$SCRIPT $VERSION"; usage 0;;
+		-H|--Host) shift
+					if echo "$1" | grep -q "[[:xdigit:]:]\{17\}"; then
+						host_mac="$1"
+					else
+						usage 1 "MAC address pattern must be HEX xx:xx:xx:xx:xx:xx"
+					fi
+			;;
+		-r|--remove) action="remove";;
+		-V|--Volume) shift
+					if [ -e "$1" ]; then
+						MASS_STORAGE_LUN="$1" # mass-storage device/file
+					else
+						usage 1 "Volume storage not existing !"
+					fi
+			;;
+		--) break;;
+	esac
+	shift
+done
+
+
+_setup() {
+# We assume dwc2/dwc3 driver is pre-loaded
+# no not setup if already existing
+grep -q '.' "$CONFIGFS"/UDC 2>/dev/null && error "Gadget already configured !" && exit 1
+
+# get a list of interfaces in peripheral mode (some devices may have several)
+UDC="$( grep -l "0" /sys/class/udc/*/is_a_peripheral 2>/dev/null | \
+	paste -s - | sed 's|/is_a_peripheral||g' | sed 's|/sys/class/udc/||g' )"
+[ -z "$UDC" ] && error "No interface set in peripheral mode for gadget !" && exit 1 # exit right-away if none
+
+# Remove conflicting modules in case they were initially loaded (cmdline.txt or al.).
+modprobe -r g_serial g_ether g_cdc g_multi
+
+# We need to verify that interface on peripheral mode is actually
+# connected to host (speed not UNKNOWN), and identify it
+# as target UDC (take last if several...while unlikely).
+# For that, temporarly start serial gadget and check ports speed
+modprobe g_serial
+ret_value="$( mktemp )"
+# Wait for gadget to settle and some interface declares valid link speed.
+timeout $TIMEOUT_IFACE sh <<-EOF >/dev/null 2>&1
+	found=""
+	while [ -z "\$found" ]; do
+		for iface in $UDC; do
+			grep -vq UNKNOWN /sys/class/udc/"\$iface"/current_speed 2>/dev/null && found="\$iface"
+		done
+		[ -n "\$found" ] && echo "\$found" > "$ret_value"
+		sleep 0.2
+	done
+EOF
+UDC="$( cat "$ret_value" )"
+rm "$ret_value"
+modprobe -r g_serial
+# we setup gadget if UDC is not empty (live port)
+[ -z "$UDC" ] && error "Gadget USB port not connected !" && exit 1
+
+_logger "Creating Extended Multifuntion USB-gadget"
+
+USB_VENDORID="0x1D6B"  # Linux Foundation
+USB_PRODUCTID="0x0104" # Multifunction composite gadget
+USB_MANUF="macmpi"
+USB_PRODUCT="Extended Multifuntion USB-gadget v$VERSION"
+USB_SERIAL="In_Tartiflette_We_Trust"
+USB_ATTRIBUTES="0x80" # Bus-powered
+USB_MAX_POWER="250" # 2mA increments on USB2 (8mA on USB3)
+HOST_MAC="${host_mac:-f6:67:ce:b3:c0:ea}" # Default LAA randomized MAC
+DEVICE_MAC="${dev_mac:-ea:64:2f:e8:19:94}" # Default LAA randomized MAC
+USB_DEVICE_CLASS="0xEF"
+USB_DEVICE_SUBCLASS="0x02"
+USB_DEVICE_PROTOCOL="0x01"
+MS_VENDOR_CODE="0xCD" # Microsoft
+MS_QW_SIGN="MSFT100" # also Microsoft (if you couldn't tell)
+RNDIS_CLASS="0xEF"
+RNDIS_SUBCLASS="0x04"
+RNDIS_PROTOCOL="0x01"
+MS_COMPAT_ID="RNDIS" # matches Windows RNDIS Drivers
+MS_SUBCOMPAT_ID="5162001" # matches Windows RNDIS 6.0 Driver
+
+# doc at https://docs.kernel.org/usb/gadget_configfs.html
+modprobe libcomposite
+
+# Create all required directories
+mkdir -p "$CONFIGFS"/strings/0x409
+
+# Setup IDs and strings
+echo $USB_VENDORID > "$CONFIGFS"/idVendor
+echo $USB_PRODUCTID > "$CONFIGFS"/idProduct
+echo $USB_DEVICE_CLASS > "$CONFIGFS"/bDeviceClass
+echo $USB_DEVICE_SUBCLASS > "$CONFIGFS"/bDeviceSubClass
+echo $USB_DEVICE_PROTOCOL > "$CONFIGFS"/bDeviceProtocol
+echo $USB_MANUF > "$CONFIGFS"/strings/0x409/manufacturer
+echo "$USB_PRODUCT" > "$CONFIGFS"/strings/0x409/product
+echo $USB_SERIAL > "$CONFIGFS"/strings/0x409/serialnumber
+
+# Create ACM (serial) function
+mkdir -p "$CONFIGFS"/functions/acm.GS0
+
+# Create ECM (ethernet) function
+mkdir -p "$CONFIGFS"/functions/ecm.usb0
+echo "$HOST_MAC" > "$CONFIGFS"/functions/ecm.usb0/host_addr
+echo "$DEVICE_MAC" > "$CONFIGFS"/functions/ecm.usb0/dev_addr
+
+# Create Mass Storage function
+# https://www.kernel.org/doc/Documentation/usb/mass-storage.txt
+if [ -n "$MASS_STORAGE_LUN" ]; then
+	mkdir -p "$CONFIGFS"/functions/mass_storage.usb0
+	echo 1 > "$CONFIGFS"/functions/mass_storage.usb0/lun.0/removable
+	echo "$MASS_STORAGE_LUN" > "$CONFIGFS"/functions/mass_storage.usb0/lun.0/file
+fi
+
+# Windows has some complex contraints on composite gadget setup
+# (RNDIS vs ECM, not supporting multiple configurations without custom.inf, etc...)
+# So we try Linux/Mac first with ECM and then rebuild for MS RNDIS if failing.
+# note: MS seems to recommend std NCM from Win11, but also keeps legacy RNDIS support.
+# https://learn.microsoft.com/en-us/windows-hardware/drivers/usbcon/supported-usb-classes
+
+# Create base configuration for Linux/macOS
+mkdir -p "$CONFIGFS"/configs/c.1
+mkdir -p "$CONFIGFS"/configs/c.1/strings/0x409
+
+echo "CDC" > "$CONFIGFS"/configs/c.1/strings/0x409/configuration
+echo "$USB_ATTRIBUTES" > "$CONFIGFS"/configs/c.1/bmAttributes
+echo "$USB_MAX_POWER" > "$CONFIGFS"/configs/c.1/MaxPower
+# It is required for ECM to go first, so Linux and Mac switch to this configuration
+ln -s "$CONFIGFS"/functions/ecm.usb0 "$CONFIGFS"/configs/c.1
+ln -s "$CONFIGFS"/functions/acm.GS0 "$CONFIGFS"/configs/c.1
+[ -n "$MASS_STORAGE_LUN" ] && ln -s "$CONFIGFS"/functions/mass_storage.usb0 "$CONFIGFS"/configs/c.1
+
+_logger "Enabling USB-gadget with ECM & al..."
+echo "$UDC" > "$CONFIGFS"/UDC
+
+# Check with timeout if ECM ethernet goes-up (value not 0)
+# if it does not (and hence times-out) then we switch to MS RNDIS
+if ! timeout $TIMEOUT_ECM sh <<-EOF >/dev/null 2>&1
+	while grep -wq "0" /sys/class/udc/"$UDC"/gadget/net/usb0/carrier_up_count 2>/dev/null; do sleep 0.2; done
+	EOF
+then
+	_logger "ECM did not work, switch to MS RNDIS"
+	echo "" > "$CONFIGFS"/UDC
+	rm "$CONFIGFS"/configs/c.1/ecm.usb0 \
+		"$CONFIGFS"/configs/c.1/acm.GS0 \
+		"$CONFIGFS"/configs/c.1/mass_storage.usb0 >/dev/null 2>&1
+	rmdir "$CONFIGFS"/functions/ecm.usb0
+
+	# On Windows 7 and later, the RNDIS 5.1 driver would be used by default,
+	# but it does not work very well. The RNDIS 6.0 driver works better. In
+	# order to get this driver to load automatically, we have to use a
+	# Microsoft-specific extension of USB.
+
+	echo "1" > "$CONFIGFS"/os_desc/use
+	echo "${MS_VENDOR_CODE}" > "$CONFIGFS"/os_desc/b_vendor_code
+	echo "${MS_QW_SIGN}" > "$CONFIGFS"/os_desc/qw_sign
+
+	# Create rndis (ethernet) function
+	mkdir -p "$CONFIGFS"/functions/rndis.usb0
+	echo "$HOST_MAC" > "$CONFIGFS"/functions/rndis.usb0/host_addr
+	echo "$DEVICE_MAC" > "$CONFIGFS"/functions/rndis.usb0/dev_addr
+	echo $RNDIS_CLASS > "$CONFIGFS"/functions/rndis.usb0/class
+	echo $RNDIS_SUBCLASS > "$CONFIGFS"/functions/rndis.usb0/subclass
+	echo $RNDIS_PROTOCOL > "$CONFIGFS"/functions/rndis.usb0/protocol
+	echo $MS_COMPAT_ID > "$CONFIGFS"/functions/rndis.usb0/os_desc/interface.rndis/compatible_id
+	echo $MS_SUBCOMPAT_ID > "$CONFIGFS"/functions/rndis.usb0/os_desc/interface.rndis/sub_compatible_id
+
+	# Create RNDIS configuration
+	echo "RNDIS" > "$CONFIGFS"/configs/c.1/strings/0x409/configuration
+	ln -s "$CONFIGFS"/configs/c.1 "$CONFIGFS"/os_desc
+	# It is required for RNDIS to go first for Windows to detect this properly
+	ln -s "$CONFIGFS"/functions/rndis.usb0 "$CONFIGFS"/configs/c.1
+	ln -s "$CONFIGFS"/functions/acm.GS0 "$CONFIGFS"/configs/c.1
+	[ -n "$MASS_STORAGE_LUN" ] && ln -s "$CONFIGFS"/functions/mass_storage.usb0 "$CONFIGFS"/configs/c.1
+
+	_logger "Re-enabling USB-gadget with RNDIS & al..."
+	echo "$UDC" > "$CONFIGFS"/UDC
+fi
+_logger "Gadget is now setup"
+}
+
+_remove() {
+if grep -q '.' "$CONFIGFS"/UDC 2>/dev/null; then
+	_logger "Removing gadget configuration..."
+    echo "" > "$CONFIGFS"/UDC
+    rm "$CONFIGFS"/os_desc/c.1 >/dev/null 2>&1
+    rm "$CONFIGFS"/configs/c.1/acm.GS0 >/dev/null 2>&1
+    rm "$CONFIGFS"/configs/c.1/ecm.usb0 >/dev/null 2>&1
+    rm "$CONFIGFS"/configs/c.1/rndis.usb0 >/dev/null 2>&1
+    rm "$CONFIGFS"/configs/c.1/mass_storage.usb0 >/dev/null 2>&1
+    rmdir "$CONFIGFS"/configs/c.1/strings/0x409 >/dev/null 2>&1
+    rmdir "$CONFIGFS"/configs/c.1 >/dev/null 2>&1
+    rmdir "$CONFIGFS"/functions/ecm.usb0 >/dev/null 2>&1
+    rmdir "$CONFIGFS"/functions/rndis.usb0 >/dev/null 2>&1
+    rmdir "$CONFIGFS"/functions/acm.GS0 >/dev/null 2>&1
+    rmdir "$CONFIGFS"/functions/mass_storage.usb0 >/dev/null 2>&1
+    rmdir "$CONFIGFS"/strings/0x409 >/dev/null 2>&1
+    rmdir "$CONFIGFS" >/dev/null 2>&1
+    _logger "Gadget is now removed"
+else
+ error "No configured Gadget !" && exit 1
+fi
+}
+
+
+if ! [ "$action" = "remove" ]; then
+	_setup
+else
+	_remove
+fi

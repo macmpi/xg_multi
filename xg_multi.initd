@@ -1,0 +1,33 @@
+#!/sbin/openrc-run
+
+# SPDX-FileCopyrightText: Copyright 2025, macmpi
+# SPDX-License-Identifier: MIT
+
+# This script manages xg_multi usb-gadget setup
+
+description="Extended Multifunction Composite USB-gadget"
+name="xg_multi"
+
+command_background=true
+pidfile="/run/${RC_SVCNAME}.pid"
+
+depend() {
+	need localmount
+	want dev-settle
+	after bootmisc hwdrivers modules
+	before net
+}
+
+start() {
+	ebegin "Enabling gadgets..."
+	/usr/bin/xg_multi $XG_MULTI_OPTS
+	eend $?
+}
+
+
+stop() {
+	ebegin "Removing gadgets"
+	/usr/bin/xg_multi -r
+	eend $?
+}
+
