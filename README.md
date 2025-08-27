@@ -1,5 +1,7 @@
-# xg_multi
-This Extended Multifunction Composite USB-gadget is built upon `libcomposite` configfs system: it is not a driver to be loaded (like original `g_multi`), but a shell program to be run on device in order to enable features.
+# Setup composite USB-gadget in a breeze !
+**xg_multi** stands for *Extended* `g_multi` (Multifunction Composite USB-gadget) -- or -- *Cross*(-hosts OS) `g_multi`.\
+This Extended Multifunction Composite USB-gadget is built upon `libcomposite` `configfs` system.\
+Unlike `g_multi`, `xg_multi` is **not an actual driver** to be loaded, but **a shell program** to be run on device in order to enable features.
 
 ## Features:
 `xg_multi` does create the following gadgets on any device originaly in **OTG-peripheral** mode:
