@@ -39,7 +39,7 @@ and mass-storage (if valid path is specified).
 Ports are just created and are left unconfigured (i.e console, networking,...)
 
 Options: -D|--Device <MAC address>  Specify MAC address for device
-         -H|--Host <MAC address>    Specify MAC address for device
+         -H|--Host <MAC address>    Specify MAC address for host
          -V|--Volume <file path>    Path to device/LUN file to use as mass-storage
          -r|--remove                Remove gadgets
          -h|--help                  help information and usage
