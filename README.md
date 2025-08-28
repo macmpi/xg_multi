@@ -1,11 +1,12 @@
 # Setup composite USB-gadget in a breeze !
 **xg_multi** stands for *Extended* `g_multi` (Multifunction Composite USB-gadget) -- or -- *Cross*(-hosts OS) `g_multi`.\
+Unlike `g_multi`, `xg_multi` seemlessly interoperates with Linux, macOS and Windows hosts.\
 This Extended Multifunction Composite USB-gadget is built upon `libcomposite` `configfs` system.\
-Unlike `g_multi`, `xg_multi` is **not an actual driver** to be loaded, but **a shell program** to be run on device in order to enable features.
+It is **not an actual driver** to load like its sibling, but **a shell program** to run on device in order to enable features.
 
 ## Features:
 `xg_multi` does create the following gadgets on any device originaly in **OTG-peripheral** mode:
-- serial (ACM): `ttyGS0` on device side, `ttyACM0` on host side
+- serial (ACM): `ttyGS0` on device side
 - ethernet (ECM for Linux/macOS, RNDIS for Windows - **switches gracefully**): `usb0` on device side
 - mass-storage
 
@@ -31,12 +32,14 @@ and mass-storage (if valid path is specified).
 Ports are just created and are left unconfigured (i.e console, networking,...)
 
 Options: -D|--Device <MAC address>  Specify MAC address for device
-         -H|--Host <MAC address>    Specify MAC address for device
+         -H|--Host <MAC address>    Specify MAC address for host
          -V|--Volume <file path>    Path to device/LUN file to use as mass-storage
          -r|--remove                Remove gadgets
          -h|--help                  help information and usage
 ```
-OpenRC files are also available to run it as a boot service; an Alpine Linux [package](https://pkgs.alpinelinux.org/packages?name=xg_multi&branch=edge&repo=&arch=&origin=&flagged=&maintainer=) is also available.
+Main execution steps are logged: `cat /var/log/messages | grep xg_multi`.
+
+OpenRC files are also available to run `xg_multi` as a boot service; an Alpine Linux [package](https://pkgs.alpinelinux.org/packages?name=xg_multi&branch=edge&repo=&arch=&origin=&flagged=&maintainer=) is also available.
 
 *Note:*
 - `xg_multi` is intended to run on `ash` shell within `busybox`. It may work within other environments (`bash`,...), but has not been tested (yet).
