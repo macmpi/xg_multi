@@ -12,18 +12,24 @@ command_background=true
 pidfile="/run/${RC_SVCNAME}.pid"
 
 depend() {
-	need localmount
-	want dev-settle
-	after bootmisc hwdrivers modules
-	before net
+	use logger
+    want dev-settle
+    need localmount
+    before net agetty.ttyGS0
+    after bootmisc hwdrivers modules
 }
 
 start() {
-	ebegin "Enabling gadgets..."
+	ebegin "Enabling gadgets"
+	if [ -z "$XG_MULTI_OPTS" ]; then
+		[ -n "$XG_MULTI_DEV_MAC" ] && XG_MULTI_OPTS="$XG_MULTI_OPTS -D $XG_MULTI_DEV_MAC"
+		[ -n "$XG_MULTI_HOST_MAC" ] && XG_MULTI_OPTS="$XG_MULTI_OPTS -H $XG_MULTI_HOST_MAC"
+		[ -n "$XG_MULTI_VOLUME" ] && XG_MULTI_OPTS="$XG_MULTI_OPTS -V $XG_MULTI_VOLUME"
+	fi
+
 	/usr/bin/xg_multi $XG_MULTI_OPTS
 	eend $?
 }
-
 
 stop() {
 	ebegin "Removing gadgets"

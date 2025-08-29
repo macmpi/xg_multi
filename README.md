@@ -1,8 +1,9 @@
 # Setup composite USB-gadget in a breeze !
 **xg_multi** stands for *Extended* `g_multi` (Multifunction Composite USB-gadget) -- or -- *Cross*(-hosts OS) `g_multi`.\
-Unlike `g_multi`, `xg_multi` seemlessly interoperates with Linux, macOS and Windows hosts.\
+`xg_multi` seemlessly interoperates with Linux, macOS and Windows hosts (unlike [`g_multi`](https://www.kernel.org/doc/Documentation/usb/gadget_multi.txt)).
+
 This Extended Multifunction Composite USB-gadget is built upon `libcomposite` `configfs` system.\
-It is **not an actual driver** to load like its sibling, but **a shell program** to run on device in order to enable features.
+It is **a shell script** to run on device in order to enable features, rather than a driver to load (like for its sibling).
 
 ## Features:
 `xg_multi` does create the following gadgets on any device originaly in **OTG-peripheral** mode:
@@ -27,7 +28,7 @@ Then run `xg_multi` on device as described:
 usage: xg_multi [-D <MAC address>>] [-H <MAC address>] [-V <file path>]
        xg_multi -r
 
-Setup (or remove) Extended Multifuntion USB-gadget: serial, ethernet (ECM/RNDIS),
+Setup (or remove) Extended Multifunction USB-gadget: serial, ethernet (ECM/RNDIS),
 and mass-storage (if valid path is specified).
 Ports are just created and are left unconfigured (i.e console, networking,...)
 
