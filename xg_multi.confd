@@ -1,0 +1,5 @@
+# check available options at https://github.com/macmpi/xg_multi
+XG_MULTI_DEV_MAC=""		# optional device MAC address in hex form
+XG_MULTI_HOST_MAC=""	# optional host MAC address in hex form
+XG_MULTI_VOLUME=""		# optional path for device or LUN file
+

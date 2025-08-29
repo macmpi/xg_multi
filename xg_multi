@@ -11,12 +11,14 @@
 # Actual ports configs like serial options, console bring-up, networking adresses are
 # application-specific and out of this scope: must be done after this script returns.
 
-VERSION="0.5"
+VERSION="0.6"
 
 SCRIPT="${0##*/}"
 error() {
 	echo "$SCRIPT: $1" >&2
 }
+
+! [ "$(id -u)" -eq 0 ] && { error "Please run this script as root."; exit 1; }
 
 alias _logger='logger -st "$SCRIPT"'
 
@@ -34,7 +36,7 @@ cat >&$outfh <<-__EOF__
 usage: xg_multi [-D <MAC address>>] [-H <MAC address>] [-V <file path>]
        xg_multi -r
 
-Setup (or remove) Extended Multifuntion USB-gadget: serial, ethernet (ECM/RNDIS),
+Setup (or remove) Extended Multifunction USB-gadget: serial, ethernet (ECM/RNDIS),
 and mass-storage (if valid path is specified).
 Ports are just created and are left unconfigured (i.e console, networking,...)
 
@@ -57,7 +59,7 @@ while true; do
 					if echo "$1" | grep -q "[[:xdigit:]:]\{17\}"; then
 						dev_mac="$1"
 					else
-						usage 1 "MAC address pattern must be HEX xx:xx:xx:xx:xx:xx"
+						usage 1 "MAC address pattern must be in HEX form xx:xx:xx:xx:xx:xx"
 					fi
 			;;
 		-h|--help) echo "$SCRIPT $VERSION"; usage 0;;
@@ -65,7 +67,7 @@ while true; do
 					if echo "$1" | grep -q "[[:xdigit:]:]\{17\}"; then
 						host_mac="$1"
 					else
-						usage 1 "MAC address pattern must be HEX xx:xx:xx:xx:xx:xx"
+						usage 1 "MAC address pattern must be in HEX form xx:xx:xx:xx:xx:xx"
 					fi
 			;;
 		-r|--remove) action="remove";;
@@ -85,7 +87,7 @@ done
 _setup() {
 # We assume dwc2/dwc3 driver is pre-loaded
 # no not setup if already existing
-grep -q '.' "$CONFIGFS"/UDC 2>/dev/null && error "Gadget already configured !" && exit 1
+grep -q '.' "$CONFIGFS"/UDC 2>/dev/null && error "Gadget is already configured !" && exit 1
 
 # get a list of interfaces in peripheral mode (some devices may have several)
 UDC="$( grep -l "0" /sys/class/udc/*/is_a_peripheral 2>/dev/null | \
@@ -116,14 +118,14 @@ UDC="$( cat "$ret_value" )"
 rm "$ret_value"
 modprobe -r g_serial
 # we setup gadget if UDC is not empty (live port)
-[ -z "$UDC" ] && error "Gadget USB port not connected !" && exit 1
+[ -z "$UDC" ] && error "Gadget USB port is not connected !" && exit 1
 
-_logger "Creating Extended Multifuntion USB-gadget"
+_logger "Creating Extended Multifunction USB-gadget..."
 
 USB_VENDORID="0x1D6B"  # Linux Foundation
 USB_PRODUCTID="0x0104" # Multifunction composite gadget
 USB_MANUF="macmpi"
-USB_PRODUCT="Extended Multifuntion USB-gadget v$VERSION"
+USB_PRODUCT="Extended Multifunction USB-gadget v$VERSION"
 USB_SERIAL="In_Tartiflette_We_Trust"
 USB_ATTRIBUTES="0x80" # Bus-powered
 USB_MAX_POWER="250" # 2mA increments on USB2 (8mA on USB3)
@@ -199,7 +201,7 @@ if ! timeout $TIMEOUT_ECM sh <<-EOF >/dev/null 2>&1
 	while grep -wq "0" /sys/class/udc/"$UDC"/gadget/net/usb0/carrier_up_count 2>/dev/null; do sleep 0.2; done
 	EOF
 then
-	_logger "ECM did not work, switch to MS RNDIS"
+	_logger "CDC-ECM mode failed, switching to MS RNDIS..."
 	echo "" > "$CONFIGFS"/UDC
 	rm "$CONFIGFS"/configs/c.1/ecm.usb0 \
 		"$CONFIGFS"/configs/c.1/acm.GS0 \
@@ -236,7 +238,7 @@ then
 	_logger "Re-enabling USB-gadget with RNDIS & al..."
 	echo "$UDC" > "$CONFIGFS"/UDC
 fi
-_logger "Gadget is now setup"
+_logger "Gadget is now setup."
 }
 
 _remove() {
@@ -256,9 +258,9 @@ if grep -q '.' "$CONFIGFS"/UDC 2>/dev/null; then
     rmdir "$CONFIGFS"/functions/mass_storage.usb0 >/dev/null 2>&1
     rmdir "$CONFIGFS"/strings/0x409 >/dev/null 2>&1
     rmdir "$CONFIGFS" >/dev/null 2>&1
-    _logger "Gadget is now removed"
+    _logger "Gadget is now removed."
 else
- error "No configured Gadget !" && exit 1
+ error "No gadget is configured !" && exit 1
 fi
 }
 
