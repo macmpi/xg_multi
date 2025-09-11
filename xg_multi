@@ -11,7 +11,7 @@
 # Actual ports configs like serial options, console bring-up, networking adresses are
 # application-specific and out of this scope: must be done after this script returns.
 
-VERSION="0.6"
+VERSION="0.7"
 
 SCRIPT="${0##*/}"
 error() {
@@ -22,8 +22,8 @@ error() {
 
 alias _logger='logger -st "$SCRIPT"'
 
-TIMEOUT_IFACE=1
-TIMEOUT_ECM=1
+TIMEOUT_UDC=1
+TIMEOUT_ETH=1
 CONFIGFS="/sys/kernel/config/usb_gadget/$SCRIPT"
 
 usage() {
@@ -44,7 +44,7 @@ Options: -D|--Device <MAC address>  Specify MAC address for device
          -H|--Host <MAC address>    Specify MAC address for host
          -V|--Volume <file path>    Path to device/LUN file to use as mass-storage
          -r|--remove                Remove gadgets
-         -h|--help                  help information and usage
+         -h|--help                  Help information and usage
 
 __EOF__
 exit "$1"
@@ -83,42 +83,51 @@ while true; do
 	shift
 done
 
+_is_eth_up() {
+# Check with timeout if ethernet interface (may not always be usb0) goes-up (carrier_up_count not 0)
+# returns error if not up (timeout),
+timeout $TIMEOUT_ETH sh <<-EOF >/dev/null 2>&1
+	eth_iface="$( find /sys/class/udc/"$UDC"/gadget/net/* -maxdepth 0 -exec basename {} \; 2>/dev/null )"
+	while grep -wq "0" /sys/class/udc/"$UDC"/gadget/net/"\$eth_iface"/carrier_up_count 2>/dev/null; do
+		sleep 0.2
+		eth_iface="$( find /sys/class/udc/"$UDC"/gadget/net/* -maxdepth 0 -exec basename {} \; 2>/dev/null )"
+	done
+EOF
+}
 
 _setup() {
 # We assume dwc2/dwc3 driver is pre-loaded
 # no not setup if already existing
-grep -q '.' "$CONFIGFS"/UDC 2>/dev/null && error "Gadget is already configured !" && exit 1
+grep -q '.' "$CONFIGFS"/UDC 2>/dev/null && _logger "Gadget is already configured !" && exit 1
 
 # get a list of interfaces in peripheral mode (some devices may have several)
 UDC="$( grep -l "0" /sys/class/udc/*/is_a_peripheral 2>/dev/null | \
 	paste -s - | sed 's|/is_a_peripheral||g' | sed 's|/sys/class/udc/||g' )"
-[ -z "$UDC" ] && error "No interface set in peripheral mode for gadget !" && exit 1 # exit right-away if none
+[ -z "$UDC" ] && _logger "No interface set in peripheral mode for gadget !" && exit 1 # exit right-away if none
 
 # Remove conflicting modules in case they were initially loaded (cmdline.txt or al.).
 modprobe -r g_serial g_ether g_cdc g_multi
 
 # We need to verify that interface on peripheral mode is actually
-# connected to host (speed not UNKNOWN), and identify it
-# as target UDC (take last if several...while unlikely).
+# connected to host (link speed not UNKNOWN), and identify it
+# as target UDC (take first if several...while unlikely).
 # For that, temporarly start serial gadget and check ports speed
 modprobe g_serial
-ret_value="$( mktemp )"
 # Wait for gadget to settle and some interface declares valid link speed.
-timeout $TIMEOUT_IFACE sh <<-EOF >/dev/null 2>&1
+UDC="$( timeout $TIMEOUT_UDC sh <<-EOF 2>/dev/null
 	found=""
 	while [ -z "\$found" ]; do
 		for iface in $UDC; do
-			grep -vq UNKNOWN /sys/class/udc/"\$iface"/current_speed 2>/dev/null && found="\$iface"
+			grep -vq UNKNOWN /sys/class/udc/"\$iface"/current_speed 2>/dev/null && found="\$iface" && break 2
 		done
-		[ -n "\$found" ] && echo "\$found" > "$ret_value"
 		sleep 0.2
 	done
+	echo "\$found"
 EOF
-UDC="$( cat "$ret_value" )"
-rm "$ret_value"
+ )"
 modprobe -r g_serial
 # we setup gadget if UDC is not empty (live port)
-[ -z "$UDC" ] && error "Gadget USB port is not connected !" && exit 1
+[ -z "$UDC" ] && _logger "Gadget USB port is not connected !" && exit 1
 
 _logger "Creating Extended Multifunction USB-gadget..."
 
@@ -197,9 +206,7 @@ echo "$UDC" > "$CONFIGFS"/UDC
 
 # Check with timeout if ECM ethernet goes-up (value not 0)
 # if it does not (and hence times-out) then we switch to MS RNDIS
-if ! timeout $TIMEOUT_ECM sh <<-EOF >/dev/null 2>&1
-	while grep -wq "0" /sys/class/udc/"$UDC"/gadget/net/usb0/carrier_up_count 2>/dev/null; do sleep 0.2; done
-	EOF
+if ! _is_eth_up
 then
 	_logger "CDC-ECM mode failed, switching to MS RNDIS..."
 	echo "" > "$CONFIGFS"/UDC
@@ -238,7 +245,14 @@ then
 	_logger "Re-enabling USB-gadget with RNDIS & al..."
 	echo "$UDC" > "$CONFIGFS"/UDC
 fi
-_logger "Gadget is now setup."
+
+if _is_eth_up; then
+	_logger "Gadget is now setup."
+else
+	_remove
+	_logger "Gadget setup failed, exiting."
+	exit 1
+fi
 }
 
 _remove() {
@@ -260,7 +274,8 @@ if grep -q '.' "$CONFIGFS"/UDC 2>/dev/null; then
     rmdir "$CONFIGFS" >/dev/null 2>&1
     _logger "Gadget is now removed."
 else
- error "No gadget is configured !" && exit 1
+	_logger "No gadget is configured !"
+	exit 1
 fi
 }
 
