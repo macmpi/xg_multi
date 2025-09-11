@@ -1,14 +1,14 @@
 # Setup composite USB-gadget in a breeze !
 **xg_multi** stands for *Extended* `g_multi` (Multifunction Composite USB-gadget) -- or -- *Cross*(-hosts OS) `g_multi`.\
-`xg_multi` seemlessly interoperates with Linux, macOS and Windows hosts (unlike [`g_multi`](https://www.kernel.org/doc/Documentation/usb/gadget_multi.txt)).
+`xg_multi` seemlessly interoperates with Linux, macOS and Windows hosts (unlike [`g_multi`](https://www.kernel.org/doc/Documentation/usb/gadget_multi.txt)[^1]).
 
 This Extended Multifunction Composite USB-gadget is built upon `libcomposite` `configfs` system.\
 It is **a shell script** to run on device in order to enable features, rather than a driver to load (like for its sibling).
 
 ## Features:
 `xg_multi` does create the following gadgets on any device originaly in **OTG-peripheral** mode:
-- serial (ACM): `ttyGS0` on device side
-- ethernet (ECM for Linux/macOS, RNDIS for Windows - **switches gracefully**): `usb0` on device side
+- serial (ACM)
+- ethernet (ECM for Linux/macOS, RNDIS for Windows - **switches gracefully**)
 - mass-storage
 
 ## Benefits:
@@ -20,7 +20,7 @@ It is **a shell script** to run on device in order to enable features, rather th
 (i.e: on Alpine Linux, after running `xg_multi`, port setup can be done during `setup-alpine`)
 
 ## Setup procedure:
-Make sure `dwc2` (or `dwc3`) driver is previously loaded on device, and configuration is set to **OTG peripheral** mode: this may be driven by hardware (including cable) and/or software.\
+Make sure `dwc2` (or `dwc3`) driver is previously loaded on capable device, and configuration is set to **OTG peripheral** mode: this may be driven by hardware (including cable) and/or software.\
 (on supporting Pi devices, just add `dtoverlay=dwc2,dr_mode=peripheral` in `config.txt` to force both by software)
 
 Then run `xg_multi` on device as described:
@@ -36,7 +36,7 @@ Options: -D|--Device <MAC address>  Specify MAC address for device
          -H|--Host <MAC address>    Specify MAC address for host
          -V|--Volume <file path>    Path to device/LUN file to use as mass-storage
          -r|--remove                Remove gadgets
-         -h|--help                  help information and usage
+         -h|--help                  Help information and usage
 ```
 Main execution steps are logged: `cat /var/log/messages | grep xg_multi`.
 
@@ -49,6 +49,7 @@ OpenRC files are also available to run `xg_multi` as a boot service; an Alpine L
   cat /etc/udev/rules.d/99-ttyacms-gadget.rules
   ATTRS{idVendor}=="0x1d6b" ATTRS{idProduct}=="0x0104", ENV{ID_MM_DEVICE_IGNORE}="1"
 ```
+[^1]: Windows does NOT support dual configurations (ECM/RNDIS) with multiple gadgets.
 
 ## Credits
 Kudos for various snippets from @geekman, @Leo-PL and many others trying to solve various MS particularites...
