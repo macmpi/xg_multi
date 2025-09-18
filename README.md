@@ -1,5 +1,5 @@
 # Setup composite USB-gadget in a breeze !
-**xg_multi** stands for *Extended* `g_multi` (Multifunction Composite USB-gadget) -- or -- *Cross*(-hosts OS) `g_multi`.\
+**xg_multi** stands for *Extended* `g_multi` (Multifunction Composite USB-gadget).\
 `xg_multi` seemlessly interoperates with Linux, macOS and Windows hosts (unlike [`g_multi`](https://www.kernel.org/doc/Documentation/usb/gadget_multi.txt)[^1]).
 
 This Extended Multifunction Composite USB-gadget is built upon `libcomposite` `configfs` system.\
@@ -12,12 +12,12 @@ It is **a shell script** to run on device in order to enable features, rather th
 - mass-storage
 
 ## Benefits:
-- Works across most host OS computers (Linux/macOS/Windows) without additional host-side drivers or configuration required.
-- Should work on any linux device supporting OTG-peripheral mode (including Raspberry Pis).
-- Does necessary sanity-checks on ports beforehand and returns clean if not relevant.
+- Interoperates with most host OS computers (Linux/macOS/Windows) without additional host-side drivers or configuration required.
+- Supports any linux device with OTG-peripheral capability (including Raspberry Pis).
+- Performs initial OTG ports sanity-checks and returns diagnostics if not properly set.
 
-*Note:* application-specific ports configurations (i.e. serial options, console bring-up, networking adresses, ...) are not in the scope of this project: user shall take care of this once ports are created.\
-(i.e: on Alpine Linux, after running `xg_multi`, port setup can be done during `setup-alpine`)
+*Note:* application-specific ports setup (i.e. serial options, console bring-up, networking configuration, ...) are not in the scope of this project: user shall take care of this after gadget ports are created.\
+(i.e: on Alpine Linux, after running `xg_multi`, networking port setup can be done with `setup-interfaces`)
 
 ## Setup procedure:
 Make sure `dwc2` (or `dwc3`) driver is previously loaded on capable device, and configuration is set to **OTG peripheral** mode: this may be driven by hardware (including cable) and/or software.\
@@ -40,11 +40,11 @@ Options: -D|--Device <MAC address>  Specify MAC address for device
 ```
 Main execution steps are logged: `cat /var/log/messages | grep xg_multi`.
 
-OpenRC files are also available to run `xg_multi` as a boot service; an Alpine Linux [package](https://pkgs.alpinelinux.org/packages?name=xg_multi&branch=edge&repo=&arch=&origin=&flagged=&maintainer=) is also available.
+OpenRC files are also available to run `xg_multi` as a boot service; an Alpine Linux [package](https://pkgs.alpinelinux.org/packages?name=xg_multi&branch=edge&repo=&arch=&origin=&flagged=&maintainer=) is also available (check [wiki](https://github.com/macmpi/xg_multi/wiki/Install) for details).
 
 *Note:*
 - `xg_multi` is intended to run on `ash` shell within `busybox`. It may work within other environments (`bash`,...), but has not been tested (yet).
-- on Linux host featuring Modem Manager, user may need to be part of `dialout` group, and create some [filtering rule](https://linux-tips.com/t/prevent-modem-manager-to-capture-usb-serial-devices/284/2) to avoid spurious `AT` commands on serial line.
+- for serial connection from Linux host featuring Modem Manager, host user may need to be part of `dialout` group, and create some [filtering rule](https://linux-tips.com/t/prevent-modem-manager-to-capture-usb-serial-devices/284/2) to avoid spurious `AT` commands on serial line.
 ```
   cat /etc/udev/rules.d/99-ttyacms-gadget.rules
   ATTRS{idVendor}=="0x1d6b" ATTRS{idProduct}=="0x0104", ENV{ID_MM_DEVICE_IGNORE}="1"
