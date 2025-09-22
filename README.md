@@ -37,7 +37,7 @@ Options: -D|--Device <MAC address>  Specify MAC address for device
 ```
 Main execution steps are logged: `cat /var/log/messages | grep xg_multi`.
 
-OpenRC files are also available to run `xg_multi` as a boot service; an Alpine Linux [package](https://pkgs.alpinelinux.org/packages?name=xg_multi&branch=edge&repo=&arch=&origin=&flagged=&maintainer=) is also available (check [wiki](https://github.com/macmpi/xg_multi/wiki/Install) for details).
+OpenRC files are available to run `xg_multi` as a boot service; a complete Alpine Linux [package](https://pkgs.alpinelinux.org/packages?name=xg_multi&branch=edge&repo=&arch=&origin=&flagged=&maintainer=) is also available (check [wiki](https://github.com/macmpi/xg_multi/wiki/Install) for details).
 
 *Note:*
 - application-specific ports setup (i.e. serial options, console bring-up, networking configuration, ...) are not in the scope of this project: user shall take care of this after gadget ports are created.\
@@ -49,7 +49,7 @@ OpenRC files are also available to run `xg_multi` as a boot service; an Alpine L
 ```
 - `xg_multi` is intended to run on `ash` shell within `busybox`. It may work within other environments (`bash`,...), but has not been tested (yet).
 
-[^1]: Windows does NOT support dual configurations (ECM/RNDIS) with multiple gadgets.
-
 ## Credits
-Kudos for various snippets from @geekman, @Leo-PL and many others trying to solve various MS particularites...
+Kudos for info & snippets from @geekman, @Leo-PL and many others to understand/work-around various MS-Windows particularites...
+
+[^1]: Windows does NOT support dual configurations (ECM/RNDIS) with composite gadget.
