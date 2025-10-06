@@ -5,9 +5,10 @@
 
 [Unit]
 Description=Extended Multifunction Composite USB-gadget
-Requires=sys-kernel-config.mount
-After=sysinit.target sys-kernel-config.mount local-fs.target syslog.service
-Before=NetworkManager.service serial-getty@ttyGS0.service
+ConditionPathIsDirectory=/sys/class/udc
+Wants=network-pre.target
+After=local-fs.target syslog.service
+Before=network-pre.target serial-getty@ttyGS0.service
 
 [Service]
 EnvironmentFile=/etc/default/xg_multi
@@ -17,5 +18,5 @@ ExecStart=/usr/bin/xg_multi $XG_MULTI_OPTS
 ExecStop=/usr/bin/xg_multi -r
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=usb-gadget.target
 
