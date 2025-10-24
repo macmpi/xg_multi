@@ -11,7 +11,7 @@
 # Actual ports configs like serial options, console bring-up, networking adresses are
 # application-specific and out of this scope: must be done after this script returns.
 
-VERSION="0.7"
+VERSION="0.8"
 
 SCRIPT="${0##*/}"
 error() {
