@@ -1,3 +1,5 @@
+[![latest packaged version(s)](https://repology.org/badge/latest-versions/xg-multi.svg)](https://repology.org/project/xg-multi/versions)
+
 # Setup composite USB-gadget in a breeze !
 **xg_multi** stands for *Extended* `g_multi` (Multifunction Composite USB-gadget).\
 `xg_multi` seemlessly interoperates with Linux, macOS and Windows hosts (unlike [`g_multi`](https://www.kernel.org/doc/Documentation/usb/gadget_multi.txt)[^1]).
@@ -14,7 +16,7 @@ It is **a shell script** to run on device in order to enable features, rather th
 ## Benefits:
 - simple: one single command/service to run (no kernel parameters-list & drivers fiddling)
 - Interoperates with most host OS computers (Linux/macOS/Windows) without additional host-side drivers or configuration required.
-- Supports any linux device with OTG-peripheral capability (including Raspberry Pis).
+- Supports any linux device with OTG-peripheral capability (including Raspberry Pis[^2]).
 - Performs initial OTG ports sanity-checks and returns diagnostics if not properly set.
 
 ## Setup procedure:
@@ -38,7 +40,8 @@ Options: -D|--Device <MAC address>  Specify MAC address for device
 ```
 Main execution steps are logged: `cat /var/log/messages | grep xg_multi`.
 
-Services files are provided to run `xg_multi` as a boot service; a complete Alpine Linux [package](https://pkgs.alpinelinux.org/packages?name=xg_multi&branch=edge&repo=&arch=&origin=&flagged=&maintainer=) is also available (check [wiki](https://github.com/macmpi/xg_multi/wiki/Install) for details).
+OpenRC and Systemd services files are provided to run `xg_multi` as a boot service (check [wiki](https://github.com/macmpi/xg_multi/wiki/Install) for details).\
+A complete Alpine Linux [package](https://pkgs.alpinelinux.org/packages?name=xg_multi&branch=edge&repo=&arch=&origin=&flagged=&maintainer=) is also available.
 
 [![Packaging status](https://repology.org/badge/vertical-allrepos/xg-multi.svg)](https://repology.org/project/xg-multi/versions)
 
@@ -52,9 +55,11 @@ Services files are provided to run `xg_multi` as a boot service; a complete Alpi
 ```
 - `xg_multi` is initially intended to run on `ash` shell within `busybox`, and works within other environments.
 
+##
+[![ko-fi](https://www.ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/macmpi)
+
 ## Credits
 Kudos for info & snippets from @geekman, @Leo-PL and many others to understand/work-around various MS-Windows particularites...
 
 [^1]: Windows does NOT support dual configurations (ECM/RNDIS) with composite gadget.
-
 [^2]: OTG capable Pi devices include Zero serie/A/A+/3A+/4B/400/5/500/Compute-Modules
