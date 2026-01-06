@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# SPDX-FileCopyrightText: Copyright 2025, macmpi
+# SPDX-FileCopyrightText: Copyright 2025-2026, macmpi
 # SPDX-License-Identifier: MIT
 
 ## Extended Multifunction Composite USB Gadget
@@ -11,14 +11,14 @@
 # Actual ports configs like serial options, console bring-up, networking adresses are
 # application-specific and out of this scope: must be done after this script returns.
 
-VERSION="0.8"
+VERSION="0.9"
 
 SCRIPT="${0##*/}"
 error() {
 	echo "$SCRIPT: $1" >&2
 }
 
-! [ "$(id -u)" -eq 0 ] && { error "Please run this script as root."; exit 1; }
+! [ "$(id -u)" -eq 0 ] && { error "Please run with administrator privileges."; exit 1; }
 
 alias _logger='logger -st "$SCRIPT"'
 
@@ -129,10 +129,10 @@ modprobe -r g_serial
 # we setup gadget if UDC is not empty (live port)
 [ -z "$UDC" ] && _logger "Gadget USB port is not connected !" && exit 1
 
-_logger "Creating Extended Multifunction USB-gadget..."
+_logger "Creating Extended Multifunction USB-gadget v$VERSION by macmpi..."
 
-USB_VENDORID="0x1D6B"  # Linux Foundation
-USB_PRODUCTID="0x0104" # Multifunction composite gadget
+USB_VENDORID="0x1d6b"  # Linux Foundation http://www.linux-usb.org/usb.ids
+USB_PRODUCTID="0x0104" # Multifunction Composite Gadget
 USB_MANUF="macmpi"
 USB_PRODUCT="Extended Multifunction USB-gadget v$VERSION"
 USB_SERIAL="In_Tartiflette_We_Trust"
@@ -140,12 +140,12 @@ USB_ATTRIBUTES="0x80" # Bus-powered
 USB_MAX_POWER="250" # 2mA increments on USB2 (8mA on USB3)
 HOST_MAC="${host_mac:-f6:67:ce:b3:c0:ea}" # Default LAA randomized MAC
 DEVICE_MAC="${dev_mac:-ea:64:2f:e8:19:94}" # Default LAA randomized MAC
-USB_DEVICE_CLASS="0xEF"
+USB_DEVICE_CLASS="0xef"
 USB_DEVICE_SUBCLASS="0x02"
 USB_DEVICE_PROTOCOL="0x01"
-MS_VENDOR_CODE="0xCD" # Microsoft
+MS_VENDOR_CODE="0xcd" # Microsoft
 MS_QW_SIGN="MSFT100" # also Microsoft (if you couldn't tell)
-RNDIS_CLASS="0xEF"
+RNDIS_CLASS="0xef"
 RNDIS_SUBCLASS="0x04"
 RNDIS_PROTOCOL="0x01"
 MS_COMPAT_ID="RNDIS" # matches Windows RNDIS Drivers
@@ -177,8 +177,10 @@ echo "$DEVICE_MAC" > "$CONFIGFS"/functions/ecm.usb0/dev_addr
 
 # Create Mass Storage function
 # https://www.kernel.org/doc/Documentation/usb/mass-storage.txt
+# https://www.kernel.org/doc/Documentation/ABI/testing/configfs-usb-gadget-mass-storage
 if [ -n "$MASS_STORAGE_LUN" ]; then
 	mkdir -p "$CONFIGFS"/functions/mass_storage.usb0
+	echo 0 > "$CONFIGFS"/functions/mass_storage.usb0/stall # Default 1, Pi may require 0
 	echo 1 > "$CONFIGFS"/functions/mass_storage.usb0/lun.0/removable
 	echo "$MASS_STORAGE_LUN" > "$CONFIGFS"/functions/mass_storage.usb0/lun.0/file
 fi
@@ -210,7 +212,7 @@ if ! _is_eth_up
 then
 	_logger "CDC-ECM mode failed, switching to MS RNDIS..."
 	echo "" > "$CONFIGFS"/UDC
-	rm "$CONFIGFS"/configs/c.1/ecm.usb0 \
+	rm -f "$CONFIGFS"/configs/c.1/ecm.usb0 \
 		"$CONFIGFS"/configs/c.1/acm.GS0 \
 		"$CONFIGFS"/configs/c.1/mass_storage.usb0 >/dev/null 2>&1
 	rmdir "$CONFIGFS"/functions/ecm.usb0
@@ -247,6 +249,8 @@ then
 fi
 
 if _is_eth_up; then
+	# Default serial config: xon/xoff flow control
+	[ -c /dev/ttyGS0 ] && stty -F /dev/ttyGS0 >/dev/null
 	_logger "Gadget is now setup."
 else
 	_remove
@@ -258,21 +262,21 @@ fi
 _remove() {
 if grep -q '.' "$CONFIGFS"/UDC 2>/dev/null; then
 	_logger "Removing gadget configuration..."
-    echo "" > "$CONFIGFS"/UDC
-    rm "$CONFIGFS"/os_desc/c.1 >/dev/null 2>&1
-    rm "$CONFIGFS"/configs/c.1/acm.GS0 >/dev/null 2>&1
-    rm "$CONFIGFS"/configs/c.1/ecm.usb0 >/dev/null 2>&1
-    rm "$CONFIGFS"/configs/c.1/rndis.usb0 >/dev/null 2>&1
-    rm "$CONFIGFS"/configs/c.1/mass_storage.usb0 >/dev/null 2>&1
-    rmdir "$CONFIGFS"/configs/c.1/strings/0x409 >/dev/null 2>&1
-    rmdir "$CONFIGFS"/configs/c.1 >/dev/null 2>&1
-    rmdir "$CONFIGFS"/functions/ecm.usb0 >/dev/null 2>&1
-    rmdir "$CONFIGFS"/functions/rndis.usb0 >/dev/null 2>&1
-    rmdir "$CONFIGFS"/functions/acm.GS0 >/dev/null 2>&1
-    rmdir "$CONFIGFS"/functions/mass_storage.usb0 >/dev/null 2>&1
-    rmdir "$CONFIGFS"/strings/0x409 >/dev/null 2>&1
-    rmdir "$CONFIGFS" >/dev/null 2>&1
-    _logger "Gadget is now removed."
+	echo "" > "$CONFIGFS"/UDC
+	rm -f "$CONFIGFS"/os_desc/c.1 >/dev/null 2>&1
+	rm -f "$CONFIGFS"/configs/c.1/acm.GS0 >/dev/null 2>&1
+	rm -f "$CONFIGFS"/configs/c.1/ecm.usb0 >/dev/null 2>&1
+	rm -f "$CONFIGFS"/configs/c.1/rndis.usb0 >/dev/null 2>&1
+	rm -f "$CONFIGFS"/configs/c.1/mass_storage.usb0 >/dev/null 2>&1
+	rmdir "$CONFIGFS"/configs/c.1/strings/0x409 >/dev/null 2>&1
+	rmdir "$CONFIGFS"/configs/c.1 >/dev/null 2>&1
+	rmdir "$CONFIGFS"/functions/ecm.usb0 >/dev/null 2>&1
+	rmdir "$CONFIGFS"/functions/rndis.usb0 >/dev/null 2>&1
+	rmdir "$CONFIGFS"/functions/acm.GS0 >/dev/null 2>&1
+	rmdir "$CONFIGFS"/functions/mass_storage.usb0 >/dev/null 2>&1
+	rmdir "$CONFIGFS"/strings/0x409 >/dev/null 2>&1
+	rmdir "$CONFIGFS" >/dev/null 2>&1
+	_logger "Gadget is now removed."
 else
 	_logger "No gadget is configured !"
 	exit 1
