@@ -4,11 +4,11 @@
 **xg_multi** stands for *Extended* `g_multi` (Multifunction Composite USB-gadget).\
 `xg_multi` seemlessly interoperates with Linux, macOS and Windows hosts (unlike [`g_multi`](https://www.kernel.org/doc/Documentation/usb/gadget_multi.txt)[^1]).
 
-This Extended Multifunction Composite USB-gadget is built upon `libcomposite` `configfs` system.\
+This Extended Multifunction Composite USB-gadget is built upon `libcomposite` `configfs` system[^2].\
 It is **a shell script** to run on device in order to enable features, rather than a driver to load (like for its sibling).
 
 ## Features:
-`xg_multi` does create the following gadgets on any device originaly in **OTG-peripheral** mode:
+`xg_multi` does create the following gadgets on any device with a USB device controller (UDC) originaly set as **OTG-peripheral**:
 - serial (ACM)
 - ethernet (ECM for Linux/macOS, RNDIS for Windows - **switches gracefully**)
 - mass-storage
@@ -16,12 +16,12 @@ It is **a shell script** to run on device in order to enable features, rather th
 ## Benefits:
 - simple: one single command/service to run (no kernel parameters-list & drivers fiddling)
 - Interoperates with most host OS computers (Linux/macOS/Windows) without additional host-side drivers or configuration required.
-- Supports any linux device with OTG-peripheral capability (including Raspberry Pis[^2]).
+- Supports any linux device with OTG-peripheral capability (including Raspberry Pis[^3]).
 - Performs initial OTG ports sanity-checks and returns diagnostics if not properly set.
 
 ## Setup procedure:
-Make sure `dwc2` (or `dwc3`) driver is previously loaded on capable device, and configuration is set to **OTG peripheral** mode: this may be driven by hardware (including cable) and/or software.\
-(on supporting Pi devices[^2], just add `dtoverlay=dwc2,dr_mode=peripheral` in `config.txt` to force both by software)
+Make sure `dwc2` (or `dwc3`) driver is **previously loaded** on capable device, **and** configuration is set to **OTG peripheral** mode: depending on devices, this may be driven by hardware (including cable) and/or software.\
+(e.g., on supporting Pi devices[^3], just add `dtoverlay=dwc2,dr_mode=peripheral` in `usercfg.txt` to force both by software)
 
 Then connect device to host via USB cable, and run `xg_multi` on device as follows:
 ```
@@ -62,4 +62,5 @@ A complete Alpine Linux [package](https://pkgs.alpinelinux.org/packages?name=xg_
 Kudos for info & snippets from @geekman, @Leo-PL and many others to understand/work-around various MS-Windows particularites...
 
 [^1]: Windows does NOT support dual configurations (ECM/RNDIS) with composite gadget.
-[^2]: OTG capable Pi devices include Zero serie/A/A+/3A+/4B/400/5/500/Compute-Modules
+[^2]: Check required Linux kernel configuration [options](https://github.com/macmpi/xg_multi/wiki/Linux-kernel-configuration)
+[^3]: OTG capable Pi devices include Zero serie/A/A+/3A+/4B/400/5/500/Compute-Modules
