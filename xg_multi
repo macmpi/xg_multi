@@ -11,7 +11,7 @@
 # Actual ports configs like serial options, console bring-up, networking adresses are
 # application-specific and out of this scope: must be done after this script returns.
 
-VERSION="0.9"
+VERSION="0.9.1"
 
 SCRIPT="${0##*/}"
 error() {
@@ -23,7 +23,7 @@ error() {
 alias _logger='logger -st "$SCRIPT"'
 
 TIMEOUT_UDC=1
-TIMEOUT_ETH=1
+TIMEOUT_ETH=2 # allow enough time for slower Win PC to detect interface.
 CONFIGFS="/sys/kernel/config/usb_gadget/$SCRIPT"
 
 usage() {
