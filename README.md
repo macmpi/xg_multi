@@ -56,7 +56,7 @@ A complete Alpine Linux [package](https://pkgs.alpinelinux.org/packages?name=xg_
 - `xg_multi` is initially intended to run on `ash` shell within `busybox`, and works within other environments.
 
 ##
-[![ko-fi](https://www.ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/macmpi)
+<a href='https://ko-fi.com/V7V81B2UF6' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://storage.ko-fi.com/cdn/kofi5.png?v=6' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a>
 
 ## Credits
 Kudos for info & snippets from @geekman, @Leo-PL and many others to understand/work-around various MS-Windows particularites...
