@@ -25,7 +25,7 @@ Make sure `dwc2` (or `dwc3`) driver is **previously loaded** on capable device, 
 
 Then connect device to host via USB cable, and run `xg_multi` on device as follows:
 ```
-usage: xg_multi [-D <MAC address>>] [-H <MAC address>] [-V <file path>]
+usage: xg_multi [-D <MAC address>] [-H <MAC address>] [-V <file path>]
        xg_multi -r
 
 Setup (or remove) Extended Multifunction USB-gadget: serial, ethernet (ECM/RNDIS),
@@ -38,7 +38,7 @@ Options: -D|--Device <MAC address>  Specify MAC address for device
          -r|--remove                Remove gadgets
          -h|--help                  Help information and usage
 ```
-Main execution steps are logged: `cat /var/log/messages | grep xg_multi`.
+Main execution steps are logged: `grep xg_multi /var/log/messages`.
 
 OpenRC and Systemd services files are provided to run `xg_multi` as a boot service (check [wiki](https://github.com/macmpi/xg_multi/wiki/Install) for details).\
 A complete Alpine Linux [package](https://pkgs.alpinelinux.org/packages?name=xg_multi&branch=edge&repo=&arch=&origin=&flagged=&maintainer=) is also available.
@@ -46,7 +46,7 @@ A complete Alpine Linux [package](https://pkgs.alpinelinux.org/packages?name=xg_
 [![Packaging status](https://repology.org/badge/vertical-allrepos/xg-multi.svg)](https://repology.org/project/xg-multi/versions)
 
 *Note:*
-- application-specific ports setup (i.e. serial options, console bring-up, networking configuration, ...) are not in the scope of this project: user shall take care of this after gadget ports are created.\
+- application-specific ports setup (i.e. serial options, console bring-up, networking configuration, ...) are not in the scope of this project: user shall take care of this after gadget ports are created (see [wiki](https://github.com/macmpi/xg_multi/wiki/Install)).\
 (i.e: on Alpine Linux, after running `xg_multi`, networking port setup can be done with `setup-interfaces`)
 - for serial connection from Linux host featuring Modem Manager, host user may need to be part of `dialout` group, and create some [filtering rule](https://linux-tips.com/t/prevent-modem-manager-to-capture-usb-serial-devices/284/2) to avoid spurious `AT` commands on serial line.
 ```

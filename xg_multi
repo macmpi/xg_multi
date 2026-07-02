@@ -11,7 +11,7 @@
 # Actual ports configs like serial options, console bring-up, networking adresses are
 # application-specific and out of this scope: must be done after this script returns.
 
-VERSION="0.9.1"
+VERSION="1.0"
 
 SCRIPT="${0##*/}"
 error() {
@@ -23,65 +23,8 @@ error() {
 alias _logger='logger -st "$SCRIPT"'
 
 TIMEOUT_UDC=1
-TIMEOUT_ETH=2 # allow enough time for slower Win PC to detect interface.
+TIMEOUT_ETH=2 # allow enough time for slower Win PC hosts to detect interface.
 CONFIGFS="/sys/kernel/config/usb_gadget/$SCRIPT"
-
-usage() {
-[ "$2" ] && error "$2"
-local outfh=2
-[ "$1" -eq 0 ] && outfh=1
-
-cat >&$outfh <<-__EOF__
-
-usage: xg_multi [-D <MAC address>>] [-H <MAC address>] [-V <file path>]
-       xg_multi -r
-
-Setup (or remove) Extended Multifunction USB-gadget: serial, ethernet (ECM/RNDIS),
-and mass-storage (if valid path is specified).
-Ports are just created and are left unconfigured (i.e console, networking,...)
-
-Options: -D|--Device <MAC address>  Specify MAC address for device
-         -H|--Host <MAC address>    Specify MAC address for host
-         -V|--Volume <file path>    Path to device/LUN file to use as mass-storage
-         -r|--remove                Remove gadgets
-         -h|--help                  Help information and usage
-
-__EOF__
-exit "$1"
-}
-
-
-OPTS=$(getopt -l Device:,help,Host:,remove,Volume: -n "$SCRIPT" -o D:hH:rV: -- "$@") || usage 1
-eval set -- "$OPTS"
-while true; do
-	case "$1" in
-		-D|--Device) shift
-					if echo "$1" | grep -q "[[:xdigit:]:]\{17\}"; then
-						dev_mac="$1"
-					else
-						usage 1 "MAC address pattern must be in HEX form xx:xx:xx:xx:xx:xx"
-					fi
-			;;
-		-h|--help) echo "$SCRIPT $VERSION"; usage 0;;
-		-H|--Host) shift
-					if echo "$1" | grep -q "[[:xdigit:]:]\{17\}"; then
-						host_mac="$1"
-					else
-						usage 1 "MAC address pattern must be in HEX form xx:xx:xx:xx:xx:xx"
-					fi
-			;;
-		-r|--remove) action="remove";;
-		-V|--Volume) shift
-					if [ -e "$1" ]; then
-						MASS_STORAGE_LUN="$1" # mass-storage device/file
-					else
-						usage 1 "Volume storage not existing !"
-					fi
-			;;
-		--) break;;
-	esac
-	shift
-done
 
 _is_eth_up() {
 # Check with timeout if ethernet interface (may not always be usb0) goes-up (carrier_up_count not 0)
@@ -97,7 +40,7 @@ EOF
 
 _setup() {
 # We assume dwc2/dwc3 driver is pre-loaded
-# no not setup if already existing
+# Do not setup if already existing
 grep -q '.' "$CONFIGFS"/UDC 2>/dev/null && _logger "Gadget is already configured !" && exit 1
 
 # get a list of interfaces in peripheral mode (some devices may have several)
@@ -180,7 +123,8 @@ echo "$DEVICE_MAC" > "$CONFIGFS"/functions/ecm.usb0/dev_addr
 # https://www.kernel.org/doc/Documentation/ABI/testing/configfs-usb-gadget-mass-storage
 if [ -n "$MASS_STORAGE_LUN" ]; then
 	mkdir -p "$CONFIGFS"/functions/mass_storage.usb0
-	echo 0 > "$CONFIGFS"/functions/mass_storage.usb0/stall # Default 1, Pi may require 0
+	echo 1 > "$CONFIGFS"/functions/mass_storage.usb0/stall # Linux default
+	# note on possible dmesg debug logs: https://github.com/raspberrypi/linux/issues/7452
 	echo 1 > "$CONFIGFS"/functions/mass_storage.usb0/lun.0/removable
 	echo "$MASS_STORAGE_LUN" > "$CONFIGFS"/functions/mass_storage.usb0/lun.0/file
 fi
@@ -283,6 +227,61 @@ else
 fi
 }
 
+usage() {
+[ "$2" ] && error "$2"
+local outfh=2
+[ "$1" -eq 0 ] && outfh=1
+
+cat >&$outfh <<-__EOF__
+
+usage: xg_multi [-D <MAC address>] [-H <MAC address>] [-V <file path>]
+       xg_multi -r
+
+Setup (or remove) Extended Multifunction USB-gadget: serial, ethernet (ECM/RNDIS),
+and mass-storage (if valid path is specified).
+Ports are just created and are left unconfigured (i.e console, networking,...)
+
+Options: -D|--Device <MAC address>  Specify MAC address for device
+         -H|--Host <MAC address>    Specify MAC address for host
+         -V|--Volume <file path>    Path to device/LUN file to use as mass-storage
+         -r|--remove                Remove gadgets
+         -h|--help                  Help information and usage
+
+__EOF__
+exit "$1"
+}
+
+OPTS=$(getopt -l Device:,help,Host:,remove,Volume: -n "$SCRIPT" -o D:hH:rV: -- "$@") || usage 1
+eval set -- "$OPTS"
+while true; do
+	case "$1" in
+		-D|--Device) shift
+					if echo "$1" | grep -q "[[:xdigit:]:]\{17\}"; then
+						dev_mac="$1"
+					else
+						usage 1 "MAC address pattern must be in HEX form xx:xx:xx:xx:xx:xx"
+					fi
+			;;
+		-h|--help) echo "$SCRIPT $VERSION"; usage 0;;
+		-H|--Host) shift
+					if echo "$1" | grep -q "[[:xdigit:]:]\{17\}"; then
+						host_mac="$1"
+					else
+						usage 1 "MAC address pattern must be in HEX form xx:xx:xx:xx:xx:xx"
+					fi
+			;;
+		-r|--remove) action="remove";;
+		-V|--Volume) shift
+					if [ -e "$1" ]; then
+						MASS_STORAGE_LUN="$1" # mass-storage device/file
+					else
+						usage 1 "Volume storage not existing !"
+					fi
+			;;
+		--) break;;
+	esac
+	shift
+done
 
 if ! [ "$action" = "remove" ]; then
 	_setup
