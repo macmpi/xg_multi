@@ -38,7 +38,7 @@ timeout $TIMEOUT_ETH sh <<-EOF >/dev/null 2>&1
 EOF
 }
 
-_setup() {
+_init() {
 # We assume dwc2/dwc3 driver is pre-loaded
 # Do not setup if already existing
 grep -q '.' "$CONFIGFS"/UDC 2>/dev/null && _logger "Gadget is already configured !" && exit 1
@@ -71,7 +71,9 @@ EOF
 modprobe -r g_serial
 # we setup gadget if UDC is not empty (live port)
 [ -z "$UDC" ] && _logger "Gadget USB port is not connected !" && exit 1
+}
 
+_setup() {
 _logger "Creating Extended Multifunction USB-gadget v$VERSION by macmpi..."
 
 USB_VENDORID="0x1d6b"  # Linux Foundation http://www.linux-usb.org/usb.ids
@@ -284,6 +286,7 @@ while true; do
 done
 
 if ! [ "$action" = "remove" ]; then
+	_init
 	_setup
 else
 	_remove
