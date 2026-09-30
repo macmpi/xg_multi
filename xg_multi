@@ -30,7 +30,7 @@ CONFIGFS="/sys/kernel/config/usb_gadget/$SCRIPT"
 _is_eth_up() {
 # Check with timeout if ethernet interface (may not always be usb0) goes-up (carrier_up_count not 0)
 # returns error if not up (timeout),
-timeout $TIMEOUT_ETH sh <<-EOF >/dev/null 2>&1
+timeout "$TIMEOUT_ETH" sh <<-EOF >/dev/null 2>&1
 	eth_iface="$( find /sys/class/udc/"$UDC"/gadget/net/* -maxdepth 0 -exec basename {} \; 2>/dev/null )"
 	while grep -wq "0" /sys/class/udc/"$UDC"/gadget/net/"\$eth_iface"/carrier_up_count 2>/dev/null; do
 		sleep 0.2
@@ -63,7 +63,7 @@ local iteration=1
 while true; do
 	modprobe g_serial
 	# Wait for gadget to settle and some interface declares valid link speed.
-	UDC="$( timeout $TIMEOUT_DTC sh <<-EOF 2>/dev/null
+	UDC="$( timeout "$TIMEOUT_DTC" sh <<-EOF 2>/dev/null
 		trap 'exit 0' TERM	# silence propagated Terminated message on timeout
 		found=""
 		while [ -z "\$found" ]; do
@@ -89,7 +89,7 @@ while true; do
 			fi
 		fi
 	fi
-	sleep $RETRY_INTERVAL
+	sleep "$RETRY_INTERVAL"
 	iteration=$((iteration + 1))
 done
 }
@@ -224,6 +224,16 @@ if _is_eth_up; then
 		[ -x /etc/init.d/agetty.ttyGS0 ] && setsid service agetty.ttyGS0 restart >/dev/null 2>&1
 		[ -s /usr/lib/systemd/system/serial-getty@ttyGS0.service ] && setsid systemctl restart serial-getty@ttyGS0 >/dev/null 2>&1
 	fi
+	# best effort network interface bring-up if configured
+	eth_iface="$( find /sys/class/udc/"$UDC"/gadget/net/* -maxdepth 0 -exec basename {} \; 2>/dev/null )"
+	if nmcli device status 2>/dev/null | grep "^$eth_iface" | grep -q diconnected; then
+		nmcli device connect "$eth_iface" >/dev/null 2>&1
+	else
+		grep -q "$eth_iface" /etc/network/interfaces 2>/dev/null  && \
+			ip link show  "$eth_iface" 2>/dev/null | grep -q "state DOWN" && \
+				ifup "$eth_iface" >/dev/null 2>&1
+	fi
+
 	_logger "Gadget is now setup."
 else
 	_remove
