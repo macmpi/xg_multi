@@ -18,7 +18,7 @@ depend() {
 
 start() {
 	ebegin "Enabling gadgets"
-	/usr/bin/xg_multi $XG_MULTI_OPTS &
+	/usr/bin/xg_multi $XG_MULTI_OPTS >/dev/null 2>&1 &
 	echo $! > "/run/${RC_SVCNAME}.pid"
 	eend 0
 }
@@ -29,6 +29,6 @@ stop() {
         	kill $(cat "/run/${RC_SVCNAME}.pid") 2>/dev/null
         	rm -f "/run/${RC_SVCNAME}.pid"
 	fi
-	/usr/bin/xg_multi -r
+	/usr/bin/xg_multi -r >/dev/null 2>&1
 	eend 0
 }

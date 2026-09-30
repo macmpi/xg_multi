@@ -13,8 +13,8 @@ Before=network-pre.target serial-getty@ttyGS0.service
 [Service]
 EnvironmentFile=/etc/default/xg_multi
 Type=simple
-ExecStart=/usr/bin/xg_multi $XG_MULTI_OPTS
-ExecStop=/usr/bin/xg_multi -r
+ExecStart=/usr/bin/xg_multi $XG_MULTI_OPTS >/dev/null 2>&1
+ExecStop=/usr/bin/xg_multi -r >/dev/null 2>&1
 
 [Install]
 WantedBy=usb-gadget.target
