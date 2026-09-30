@@ -217,7 +217,13 @@ fi
 
 if _is_eth_up; then
 	# Default serial config: xon/xoff flow control
-	[ -c /dev/ttyGS0 ] && stty -F /dev/ttyGS0 >/dev/null
+	if [ -c /dev/ttyGS0 ]; then
+		# wait for ttyGS0 to be ready
+		while ! stty -F /dev/ttyGS0 >/dev/null 2>&1; do sleep 0.1; done
+		# best effort serial console start if previously configured
+		[ -x /etc/init.d/agetty.ttyGS0 ] && setsid service agetty.ttyGS0 restart >/dev/null 2>&1
+		[ -s /usr/lib/systemd/system/serial-getty@ttyGS0.service ] && setsid systemctl restart serial-getty@ttyGS0 >/dev/null 2>&1
+	fi
 	_logger "Gadget is now setup."
 else
 	_remove
