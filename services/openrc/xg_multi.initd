@@ -8,9 +8,6 @@
 description="Extended Multifunction Composite USB-gadget"
 name="xg_multi"
 
-command_background=true
-pidfile="/run/${RC_SVCNAME}.pid"
-
 depend() {
 	use logger
     want dev-settle
@@ -19,21 +16,31 @@ depend() {
     after bootmisc hwdrivers modules
 }
 
+
+start_pre() {
+	ebegin
+	if [ -z "$XG_MULTI_OPTS" ]; then
+		XG_MULTI_OPTS="$XG_MULTI_OPTS${XG_MULTI_DEV_MAC:+ -D $XG_MULTI_DEV_MAC}"
+		XG_MULTI_OPTS="$XG_MULTI_OPTS${XG_MULTI_HOST_MAC:+ -H $XG_MULTI_HOST_MAC}"
+		XG_MULTI_OPTS="$XG_MULTI_OPTS${XG_MULTI_VOLUME:+ -V $XG_MULTI_VOLUME}"
+		XG_MULTI_OPTS="$XG_MULTI_OPTS${XG_MULTI_WAIT:+ -w $XG_MULTI_WAIT}"
+	fi
+	eend 0
+}
+
 start() {
 	ebegin "Enabling gadgets"
-	if [ -z "$XG_MULTI_OPTS" ]; then
-		[ -n "$XG_MULTI_DEV_MAC" ] && XG_MULTI_OPTS="$XG_MULTI_OPTS -D $XG_MULTI_DEV_MAC"
-		[ -n "$XG_MULTI_HOST_MAC" ] && XG_MULTI_OPTS="$XG_MULTI_OPTS -H $XG_MULTI_HOST_MAC"
-		[ -n "$XG_MULTI_VOLUME" ] && XG_MULTI_OPTS="$XG_MULTI_OPTS -V $XG_MULTI_VOLUME"
-	fi
-
-	/usr/bin/xg_multi $XG_MULTI_OPTS
-	eend $?
+	/usr/bin/xg_multi $XG_MULTI_OPTS &
+	echo $! > "/run/${RC_SVCNAME}.pid"
+	eend 0
 }
 
 stop() {
 	ebegin "Removing gadgets"
+	if [ -s "/run/${RC_SVCNAME}.pid" ]; then
+        	kill $(cat "/run/${RC_SVCNAME}.pid") 2>/dev/null
+        	rm -f "/run/${RC_SVCNAME}.pid"
+	fi
 	/usr/bin/xg_multi -r
-	eend $?
+	eend 0
 }
-

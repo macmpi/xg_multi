@@ -25,7 +25,7 @@ Make sure `dwc2` (or `dwc3`) driver is **previously loaded** on capable device, 
 
 Then connect device to host via USB cable, and run `xg_multi` on device as follows:
 ```
-usage: xg_multi [-D <MAC address>] [-H <MAC address>] [-V <file path>]
+usage: xg_multi [-D <MAC address>] [-H <MAC address>] [-V <file path>] [-w <seconds>]
        xg_multi -r
 
 Setup (or remove) Extended Multifunction USB-gadget: serial, ethernet (ECM/RNDIS),
@@ -36,6 +36,7 @@ Options: -D|--Device <MAC address>  Specify MAC address for device
          -H|--Host <MAC address>    Specify MAC address for host
          -V|--Volume <file path>    Path to device/LUN file to use as mass-storage
          -r|--remove                Remove gadgets
+         -w|--watch <seconds>       Regularly watch for an ad-hoc Host connection
          -h|--help                  Help information and usage
 ```
 Main execution steps are logged: `grep xg_multi /var/log/messages`.

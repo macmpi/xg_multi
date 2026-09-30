@@ -22,8 +22,9 @@ error() {
 
 alias _logger='logger -st "$SCRIPT"'
 
-TIMEOUT_UDC=1
-TIMEOUT_ETH=2 # allow enough time for slower Win PC hosts to detect interface.
+: "${TIMEOUT_DTC:=1}"
+: "${RETRY_INTERVAL:=5}"	# Port detection may need 2 tries with slower hosts
+: "${TIMEOUT_ETH:=2}"		# allow enough time for slower Win PC hosts to detect network interface.
 CONFIGFS="/sys/kernel/config/usb_gadget/$SCRIPT"
 
 _is_eth_up() {
@@ -35,7 +36,7 @@ timeout $TIMEOUT_ETH sh <<-EOF >/dev/null 2>&1
 		sleep 0.2
 		eth_iface="$( find /sys/class/udc/"$UDC"/gadget/net/* -maxdepth 0 -exec basename {} \; 2>/dev/null )"
 	done
-EOF
+	EOF
 }
 
 _init() {
@@ -44,9 +45,9 @@ _init() {
 grep -q '.' "$CONFIGFS"/UDC 2>/dev/null && _logger "Gadget is already configured !" && exit 1
 
 # get a list of interfaces in peripheral mode (some devices may have several)
-UDC="$( grep -l "0" /sys/class/udc/*/is_a_peripheral 2>/dev/null | \
+UDC_list="$( grep -l "0" /sys/class/udc/*/is_a_peripheral 2>/dev/null | \
 	paste -s - | sed 's|/is_a_peripheral||g' | sed 's|/sys/class/udc/||g' )"
-[ -z "$UDC" ] && _logger "No interface set in peripheral mode for gadget !" && exit 1 # exit right-away if none
+[ -z "$UDC_list" ] && _logger "No interface set in peripheral mode for gadget !" && exit 1 # exit right-away if none
 
 # Remove conflicting modules in case they were initially loaded (cmdline.txt or al.).
 modprobe -r g_serial g_ether g_cdc g_multi
@@ -55,22 +56,41 @@ modprobe -r g_serial g_ether g_cdc g_multi
 # connected to host (link speed not UNKNOWN), and identify it
 # as target UDC (take first if several...while unlikely).
 # For that, temporarly start serial gadget and check ports speed
-modprobe g_serial
-# Wait for gadget to settle and some interface declares valid link speed.
-UDC="$( timeout $TIMEOUT_UDC sh <<-EOF 2>/dev/null
-	found=""
-	while [ -z "\$found" ]; do
-		for iface in $UDC; do
-			grep -vq UNKNOWN /sys/class/udc/"\$iface"/current_speed 2>/dev/null && found="\$iface" && break 2
+# some hosts may fail to respond fisrt time, so we'll do twice by default.
+# If in hotplug mode, then we will poll regularly to react to USB insertion
+# (since we can not monitor /sys/class with inotifyd, we will just poll...)
+local iteration=1
+while true; do
+	modprobe g_serial
+	# Wait for gadget to settle and some interface declares valid link speed.
+	UDC="$( timeout $TIMEOUT_DTC sh <<-EOF 2>/dev/null
+		found=""
+		while [ -z "\$found" ]; do
+			for iface in $UDC_list; do
+				grep -vq UNKNOWN /sys/class/udc/"\$iface"/current_speed 2>/dev/null && found="\$iface" && break 2
+			done
+			sleep 0.2
 		done
-		sleep 0.2
-	done
-	echo "\$found"
-EOF
- )"
-modprobe -r g_serial
-# we setup gadget if UDC is not empty (live port)
-[ -z "$UDC" ] && _logger "Gadget USB port is not connected !" && exit 1
+		echo "\$found"
+		EOF
+ 	)"
+	modprobe -r g_serial
+
+	if [ -n "$UDC" ] ; then
+		break # we found UDC live port and continue
+	else
+		if [ "$iteration" -le "2" ]; then
+			[ "$iteration" -eq "1" ] && _logger "Gadget USB port is not connected, will retry..."
+			if [ "$iteration" -eq "2" ]; then
+			 [ -z "$polling" ] && _logger "Gadget USB port is not connected !" && exit 1 # aborting after 2 tries if no polling mode
+			 RETRY_INTERVAL=$polling
+			_logger "Will poll Gadget USB port connection every $polling seconds..."
+			fi
+		fi
+	fi
+	sleep $RETRY_INTERVAL
+	iteration=$((iteration + 1))
+done
 }
 
 _setup() {
@@ -236,7 +256,7 @@ local outfh=2
 
 cat >&$outfh <<-__EOF__
 
-usage: xg_multi [-D <MAC address>] [-H <MAC address>] [-V <file path>]
+usage: xg_multi [-D <MAC address>] [-H <MAC address>] [-V <file path>] [-w <seconds>]
        xg_multi -r
 
 Setup (or remove) Extended Multifunction USB-gadget: serial, ethernet (ECM/RNDIS),
@@ -247,13 +267,14 @@ Options: -D|--Device <MAC address>  Specify MAC address for device
          -H|--Host <MAC address>    Specify MAC address for host
          -V|--Volume <file path>    Path to device/LUN file to use as mass-storage
          -r|--remove                Remove gadgets
+         -w|--watch <seconds>       Regularly watch for an ad-hoc Host connection
          -h|--help                  Help information and usage
 
 __EOF__
 exit "$1"
 }
 
-OPTS=$(getopt -l Device:,help,Host:,remove,Volume: -n "$SCRIPT" -o D:hH:rV: -- "$@") || usage 1
+OPTS=$(getopt -l Device:,help,Host:,remove,Volume:,watch: -n "$SCRIPT" -o D:hH:rV:w: -- "$@") || usage 1
 eval set -- "$OPTS"
 while true; do
 	case "$1" in
@@ -278,6 +299,13 @@ while true; do
 						MASS_STORAGE_LUN="$1" # mass-storage device/file
 					else
 						usage 1 "Volume storage not existing !"
+					fi
+			;;
+		-w|--watch) shift
+					if [ "$1" -gt 0 ] 2>/dev/null; then
+						polling="$1"
+					else
+						usage 1 "Polling intervall must be a positive integer (seconds)"
 					fi
 			;;
 		--) break;;
