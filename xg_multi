@@ -64,6 +64,7 @@ while true; do
 	modprobe g_serial
 	# Wait for gadget to settle and some interface declares valid link speed.
 	UDC="$( timeout $TIMEOUT_DTC sh <<-EOF 2>/dev/null
+		trap 'exit 0' TERM	# silence propagated Terminated message on timeout
 		found=""
 		while [ -z "\$found" ]; do
 			for iface in $UDC_list; do
