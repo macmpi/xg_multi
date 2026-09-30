@@ -1,6 +1,7 @@
-# check available options at https://github.com/macmpi/xg_multi
-XG_MULTI_DEV_MAC=""    # optional device MAC address in hex form
-XG_MULTI_HOST_MAC=""	 # optional host MAC address in hex form
-XG_MULTI_VOLUME=""    # optional path for device or LUN file
-XG_MULTI_WAIT=         # optional polling interval in seconds
+# check available option strings at https://github.com/macmpi/xg_multi
+DEV_MAC=""    # option with -D for device MAC address in hex form
+HOST_MAC=""	 # option with -H for host MAC address in hex form
+VOLUME=""    # option with -V for path for device or LUN file
+WAIT=""       # option with -w for polling interval in seconds
 
+XG_MULTI_OPTS="$DEV_MAC $HOST_MAC $VOLUME $WAIT"

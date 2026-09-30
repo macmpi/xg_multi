@@ -16,18 +16,6 @@ depend() {
     after bootmisc hwdrivers modules
 }
 
-
-start_pre() {
-	ebegin
-	if [ -z "$XG_MULTI_OPTS" ]; then
-		XG_MULTI_OPTS="$XG_MULTI_OPTS${XG_MULTI_DEV_MAC:+ -D $XG_MULTI_DEV_MAC}"
-		XG_MULTI_OPTS="$XG_MULTI_OPTS${XG_MULTI_HOST_MAC:+ -H $XG_MULTI_HOST_MAC}"
-		XG_MULTI_OPTS="$XG_MULTI_OPTS${XG_MULTI_VOLUME:+ -V $XG_MULTI_VOLUME}"
-		XG_MULTI_OPTS="$XG_MULTI_OPTS${XG_MULTI_WAIT:+ -w $XG_MULTI_WAIT}"
-	fi
-	eend 0
-}
-
 start() {
 	ebegin "Enabling gadgets"
 	/usr/bin/xg_multi $XG_MULTI_OPTS &
