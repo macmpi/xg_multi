@@ -221,16 +221,19 @@ if _is_eth_up; then
 		# wait for ttyGS0 to be ready
 		while ! stty -F /dev/ttyGS0 >/dev/null 2>&1; do sleep 0.2; done
 		# best effort serial console start if previously configured
-		[ -x /etc/init.d/agetty.ttyGS0 ] && setsid service agetty.ttyGS0 restart >/dev/null 2>&1
-		[ -s /usr/lib/systemd/system/serial-getty@ttyGS0.service ] && setsid systemctl restart serial-getty@ttyGS0 >/dev/null 2>&1
+		[ -x /etc/init.d/agetty.ttyGS0 ] && _logger "Trying to start console..." && \
+			setsid service agetty.ttyGS0 restart >/dev/null 2>&1
+		[ -s /usr/lib/systemd/system/serial-getty@ttyGS0.service ] && _logger "Trying to start console..." && \
+			setsid systemctl restart serial-getty@ttyGS0 >/dev/null 2>&1
 	fi
 	# best effort network interface bring-up if configured
 	eth_iface="$( find /sys/class/udc/"$UDC"/gadget/net/* -maxdepth 0 -exec basename {} \; 2>/dev/null )"
 	if nmcli device status 2>/dev/null | grep "^$eth_iface" | grep -q diconnected; then
+		_logger "Trying to enable $eth_iface..."
 		nmcli device connect "$eth_iface" >/dev/null 2>&1
 	else
 		grep -q "$eth_iface" /etc/network/interfaces 2>/dev/null  && \
-			ip link show  "$eth_iface" 2>/dev/null | grep -q "state DOWN" && \
+			ip link show  "$eth_iface" 2>/dev/null | grep -q "state DOWN" && _logger "Trying to enable $eth_iface..." && \
 				ifup "$eth_iface" >/dev/null 2>&1
 	fi
 
