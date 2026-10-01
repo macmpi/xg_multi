@@ -31,6 +31,7 @@ _is_eth_up() {
 # Check with timeout if ethernet interface (may not always be usb0) goes-up (carrier_up_count not 0)
 # returns error if not up (timeout),
 timeout "$TIMEOUT_ETH" sh <<-EOF >/dev/null 2>&1
+	trap 'exit 1' TERM	# silence propagated Terminated message on timeout
 	eth_iface="$( find /sys/class/udc/"$UDC"/gadget/net/* -maxdepth 0 -exec basename {} \; 2>/dev/null )"
 	while grep -wq "0" /sys/class/udc/"$UDC"/gadget/net/"\$eth_iface"/carrier_up_count 2>/dev/null; do
 		sleep 0.2
@@ -64,7 +65,7 @@ while true; do
 	modprobe g_serial
 	# Wait for gadget to settle and some interface declares valid link speed.
 	UDC="$( timeout "$TIMEOUT_DTC" sh <<-EOF 2>/dev/null
-		trap 'exit 0' TERM	# silence propagated Terminated message on timeout
+		trap 'exit 1' TERM	# silence propagated Terminated message on timeout
 		found=""
 		while [ -z "\$found" ]; do
 			for iface in $UDC_list; do
@@ -81,7 +82,7 @@ while true; do
 		break # we found UDC live port and continue
 	else
 		if [ "$iteration" -le "2" ]; then
-			[ "$iteration" -eq "1" ] && _logger "Gadget USB port is not connected, will retry..."
+			[ "$iteration" -eq "1" ] && _logger "Gadget USB port is not connected, will retry in $RETRY_INTERVAL seconds..."
 			if [ "$iteration" -eq "2" ]; then
 			 [ -z "$polling" ] && _logger "Gadget USB port is not connected !" && exit 1 # aborting after 2 tries if no polling mode
 			 RETRY_INTERVAL=$polling
@@ -173,10 +174,8 @@ ln -s "$CONFIGFS"/functions/acm.GS0 "$CONFIGFS"/configs/c.1
 _logger "Enabling USB-gadget with ECM & al..."
 echo "$UDC" > "$CONFIGFS"/UDC
 
-# Check with timeout if ECM ethernet goes-up (value not 0)
-# if it does not (and hence times-out) then we switch to MS RNDIS
-if ! _is_eth_up
-then
+# Check if ECM ethernet goes-up; switch to RNDIS if not.
+if ! _is_eth_up; then
 	_logger "CDC-ECM mode failed, switching to MS RNDIS..."
 	echo "" > "$CONFIGFS"/UDC
 	rm -f "$CONFIGFS"/configs/c.1/ecm.usb0 \
@@ -215,11 +214,12 @@ then
 	echo "$UDC" > "$CONFIGFS"/UDC
 fi
 
+# Final check after eventual ECM to RNDIS switch
 if _is_eth_up; then
 	# Default serial config: xon/xoff flow control
 	if [ -c /dev/ttyGS0 ]; then
 		# wait for ttyGS0 to be ready
-		while ! stty -F /dev/ttyGS0 >/dev/null 2>&1; do sleep 0.1; done
+		while ! stty -F /dev/ttyGS0 >/dev/null 2>&1; do sleep 0.2; done
 		# best effort serial console start if previously configured
 		[ -x /etc/init.d/agetty.ttyGS0 ] && setsid service agetty.ttyGS0 restart >/dev/null 2>&1
 		[ -s /usr/lib/systemd/system/serial-getty@ttyGS0.service ] && setsid systemctl restart serial-getty@ttyGS0 >/dev/null 2>&1
