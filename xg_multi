@@ -238,9 +238,10 @@ if _is_eth_up; then
 		_logger "Trying to enable $eth_iface..."
 		nmcli device connect "$eth_iface" >/dev/null 2>&1
 	else
-		grep -q "$eth_iface" /etc/network/interfaces 2>/dev/null  && \
-			ip link show  "$eth_iface" 2>/dev/null | grep -q "state DOWN" && _logger "Trying to enable $eth_iface..." && \
-				ifup -f "$eth_iface" >/dev/null 2>&1
+		ifquery "$eth_iface" >/dev/null 2>&1 && \
+			ip link show "$eth_iface" 2>/dev/null | grep -q "state DOWN" && \
+			_logger "Trying to enable $eth_iface..." && \
+			ifup -f "$eth_iface" >/dev/null 2>&1
 	fi
 
 	_logger "Gadget is now setup."
