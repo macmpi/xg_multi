@@ -17,7 +17,7 @@ ExecStart=/usr/bin/xg_multi $XG_MULTI_OPTS \
 	${XG_MULTI_OPTS:+"":-$DEV_MAC} \
 	${XG_MULTI_OPTS:+"":-$HOST_MAC} \
 	${XG_MULTI_OPTS:+"":-$VOLUME} \
-	${XG_MULTI_OPTS:+"":-$WAIT} >/dev/null 2>&1
+	${XG_MULTI_OPTS:+"":-$WATCH} >/dev/null 2>&1
 ExecStop=/usr/bin/xg_multi -r >/dev/null 2>&1
 
 [Install]

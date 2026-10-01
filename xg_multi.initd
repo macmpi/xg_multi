@@ -17,7 +17,7 @@ depend() {
 }
 
 start_pre() {
-	XG_MULTI_OPTS="${XG_MULTI_OPTS:-$DEV_MAC $HOST_MAC $VOLUME $WAIT}"
+	XG_MULTI_OPTS="${XG_MULTI_OPTS:-$DEV_MAC $HOST_MAC $VOLUME $WATCH}"
 }
 
 start() {
