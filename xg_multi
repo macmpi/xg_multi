@@ -9,7 +9,8 @@
 # Enables USB Serial, Ethernet (ECM or RNDIS) ports and Mass Storage functions
 # Does necessary sanity-checks on ports beforehand and returns clean if not relevant.
 # Actual ports configs like serial options, console bring-up, networking adresses are
-# application-specific and out of this scope: must be done after this script returns.
+# application-specific and out of this scope, but this program will leverage such configs
+# to try to bring-up console login and network port.
 
 VERSION="1.0"
 
@@ -40,9 +41,37 @@ timeout "$TIMEOUT_ETH" sh <<-EOF >/dev/null 2>&1
 	EOF
 }
 
+_detect_udc() {
+# We need to verify that interface on peripheral mode is actually
+# connected to host (link speed not UNKNOWN), and identify it
+# as target UDC (take first if several...while unlikely).
+# For that, temporarly start serial gadget and check ports speed
+# (some hosts may fail to respond fisrt time, so may need to do twice).
+# If in watch mode, then we will poll regularly to react to USB insertion
+# (since we can not monitor /sys/class with inotifyd, we will just poll...)
+
+# if gadget is not setup, pull-in g_serial to test connection
+modprobe g_serial
+# Wait for gadget to settle and some interface declares valid link speed.
+UDC="$( timeout "$TIMEOUT_DTC" sh <<-EOF 2>/dev/null
+	trap 'exit 1' TERM	# silence propagated Terminated message on timeout
+	found=""
+	while [ -z "\$found" ]; do
+		for iface in $UDC_list; do
+			grep -vq UNKNOWN /sys/class/udc/"\$iface"/current_speed 2>/dev/null && found="\$iface" && break 2
+		done
+		sleep 0.2
+	done
+	echo "\$found"
+	EOF
+)"
+modprobe -r g_serial
+}
+
 _init() {
 # We assume dwc2/dwc3 driver is pre-loaded
 # Do not setup if already existing
+local i
 grep -q '.' "$CONFIGFS"/UDC 2>/dev/null && _logger "Gadget is already configured !" && exit 1
 
 # get a list of interfaces in peripheral mode (some devices may have several)
@@ -52,46 +81,23 @@ UDC_list="$( grep -l "0" /sys/class/udc/*/is_a_peripheral 2>/dev/null | \
 
 # Remove conflicting modules in case they were initially loaded (cmdline.txt or al.).
 modprobe -r g_serial g_ether g_cdc g_multi
-
-# We need to verify that interface on peripheral mode is actually
-# connected to host (link speed not UNKNOWN), and identify it
-# as target UDC (take first if several...while unlikely).
-# For that, temporarly start serial gadget and check ports speed
-# some hosts may fail to respond fisrt time, so we'll do twice by default.
-# If in hotplug mode, then we will poll regularly to react to USB insertion
-# (since we can not monitor /sys/class with inotifyd, we will just poll...)
-local iteration=1
-while true; do
-	modprobe g_serial
-	# Wait for gadget to settle and some interface declares valid link speed.
-	UDC="$( timeout "$TIMEOUT_DTC" sh <<-EOF 2>/dev/null
-		trap 'exit 1' TERM	# silence propagated Terminated message on timeout
-		found=""
-		while [ -z "\$found" ]; do
-			for iface in $UDC_list; do
-				grep -vq UNKNOWN /sys/class/udc/"\$iface"/current_speed 2>/dev/null && found="\$iface" && break 2
-			done
-			sleep 0.2
-		done
-		echo "\$found"
-		EOF
- 	)"
-	modprobe -r g_serial
-
-	if [ -n "$UDC" ] ; then
-		break # we found UDC live port and continue
-	else
-		if [ "$iteration" -le "2" ]; then
-			[ "$iteration" -eq "1" ] && _logger "Gadget USB port is not connected, will retry in $RETRY_INTERVAL seconds..."
-			if [ "$iteration" -eq "2" ]; then
-			 [ -z "$polling" ] && _logger "Gadget USB port is not connected !" && exit 1 # aborting after 2 tries if no polling mode
-			 RETRY_INTERVAL=$polling
+i=1
+while true; do  # some slow hosts may fail detection if tried only once when plugged before startup
+	_detect_udc
+	[ -n "$UDC" ] && break  # we found UDC live port and continue
+	if [ "$i" -le "2" ]; then
+		if [ "$i" -eq "1" ]; then
+			_logger "Gadget USB port is not connected, will retry in $RETRY_INTERVAL seconds..."
+		else
+			[ -z "$polling" ] && \
+				_logger "Gadget USB port is not connected !" && \
+				exit 1  # aborting after 2 tries if not polling
+			RETRY_INTERVAL="$polling"
 			_logger "Will poll Gadget USB port connection every $polling seconds..."
-			fi
 		fi
 	fi
 	sleep "$RETRY_INTERVAL"
-	iteration=$((iteration + 1))
+	i=$((i + 1))
 done
 }
 
@@ -322,7 +328,7 @@ while true; do
 					fi
 			;;
 		-w|--watch) shift
-					if [ "$1" -gt 0 ] 2>/dev/null; then
+					if  [ "$1" -gt "0" ] 2>/dev/null; then
 						polling="$1"
 					else
 						usage 1 "Polling intervall must be a positive integer (seconds)"
