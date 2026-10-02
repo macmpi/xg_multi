@@ -18,6 +18,8 @@ It is **a shell script** to run on device in order to enable features, rather th
 - Interoperates with most host OS computers (Linux/macOS/Windows) without additional host-side drivers or configuration required.
 - Supports any linux device with OTG-peripheral capability (including Raspberry Pis[^3]).
 - Performs initial OTG ports sanity-checks and returns diagnostics if not properly set.
+- Fully activate pre-configured interfaces (console, networking).
+- *watch* mode can detect ad-hoc (post-startup) USB connection to host: ideal for servicing a headless device.
 
 ## Setup procedure:
 Make sure `dwc2` (or `dwc3`) driver is **previously loaded** on capable device, **and** configuration is set to **OTG peripheral** mode: depending on devices, this may be driven by hardware (including cable) and/or software.\
@@ -25,12 +27,11 @@ Make sure `dwc2` (or `dwc3`) driver is **previously loaded** on capable device, 
 
 Then connect device to host via USB cable, and run `xg_multi` on device as follows:
 ```
-usage: xg_multi [-D <MAC address>] [-H <MAC address>] [-V <file path>] [-w <seconds>]
-       xg_multi -r
+usage: xg_multi [OPTIONS]
 
 Setup (or remove) Extended Multifunction USB-gadget: serial, ethernet (ECM/RNDIS),
 and mass-storage (if valid path is specified).
-Ports are just created and are left unconfigured (i.e console, networking,...)
+Pre-configured interfaces (i.e console, networking) will be activated.
 
 Options: -D|--Device <MAC address>  Specify MAC address for device
          -H|--Host <MAC address>    Specify MAC address for host
@@ -47,8 +48,8 @@ A complete Alpine Linux [package](https://pkgs.alpinelinux.org/packages?name=xg_
 [![Packaging status](https://repology.org/badge/vertical-allrepos/xg-multi.svg)](https://repology.org/project/xg-multi/versions)
 
 *Note:*
-- application-specific ports setup (i.e. serial options, console bring-up, networking configuration, ...) are not in the scope of this project: user shall take care of this after gadget ports are created (see [wiki](https://github.com/macmpi/xg_multi/wiki/Install)).\
-(i.e: on Alpine Linux, after running `xg_multi`, networking port setup can be done with `setup-interfaces`)
+- application-specific interfaces setup (i.e. serial options, console bring-up, networking configuration) are not in the scope of this project: user shall take care of this separately (see [wiki](https://github.com/macmpi/xg_multi/wiki/Install)).\
+If interfaces are pre-configured, `xg_multi` will try to fully activate them.
 - for serial connection from Linux host featuring Modem Manager, host user may need to be part of `dialout` group, and create some [filtering rule](https://linux-tips.com/t/prevent-modem-manager-to-capture-usb-serial-devices/284/2) to avoid spurious `AT` commands on serial line.
 ```
   cat /etc/udev/rules.d/99-ttyacms-gadget.rules

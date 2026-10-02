@@ -282,12 +282,11 @@ local outfh=2
 
 cat >&$outfh <<-__EOF__
 
-usage: xg_multi [-D <MAC address>] [-H <MAC address>] [-V <file path>] [-w <seconds>]
-       xg_multi -r
+usage: xg_multi [OPTIONS]
 
 Setup (or remove) Extended Multifunction USB-gadget: serial, ethernet (ECM/RNDIS),
 and mass-storage (if valid path is specified).
-Ports are just created and are left unconfigured (i.e console, networking,...)
+Pre-configured interfaces (i.e console, networking) will be activated.
 
 Options: -D|--Device <MAC address>  Specify MAC address for device
          -H|--Host <MAC address>    Specify MAC address for host
